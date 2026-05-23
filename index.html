@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Asset Client</title>
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --panel: #111827;
+            --accent: #3b82f6;
+            --text: #f1f5f9;
+            --text-muted: #9ca3af;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+        .player-card {
+            background-color: var(--panel);
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        h2 { margin: 0 0 5px 0; font-size: 20px; color: var(--accent); }
+        .subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 20px; }
+        
+        .now-playing {
+            background-color: #030712;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #60a5fa;
+            margin-bottom: 20px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .playlist {
+            background-color: #030712;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding: 5px;
+            text-align: left;
+        }
+        .track {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .track:hover { background-color: #1f2937; color: white; }
+        .track.active { background-color: var(--accent); color: white; font-weight: bold; }
+        .status-msg { text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px; }
+
+        audio { width: 100%; height: 40px; outline: none; }
+    </style>
+</head>
+<body>
+
+<div class="player-card">
+    <h2>Academic Audio Workspace</h2>
+    <div class="subtitle">Auto-scanning repository deployment</div>
+    
+    <div class="now-playing" id="trackDisplay">Loading directory...</div>
+    
+    <div class="playlist" id="playlistLayout">
+        <div class="status-msg" id="statusBox">Scanning repository directory...</div>
+    </div>
+
+    <audio id="audioEngine" controls></audio>
+</div>
+
+<script>
+    // UPDATE THESE TWO VALUES TO MATCH YOUR ACCOUNT EXACTLY
+    const githubUser = "SnoozingMax";
+    const repoName = "orbit-site";
+    const folderPath = "songs"; // The folder containing your mp3s
+
+    const player = document.getElementById('audioEngine');
+    const display = document.getElementById('trackDisplay');
+    const playlistLayout = document.getElementById('playlistLayout');
+    const statusBox = document.getElementById('statusBox');
+
+    // Automatically check for files on startup
+    window.onload = function() {
+        scanGithubDirectory();
+    };
+
+    async function scanGithubDirectory() {
+        // Asks GitHub's data servers to send a list of everything inside your folder
+        const apiUrl = `https://github.com{githubUser}/${repoName}/contents/${folderPath}`;
+        
+        try {
+            const response = await fetch(apiUrl);
+            if (!response.ok) throw new Error("Folder not found");
+            const files = await response.json();
+            
+            // Filter out everything except audio tracks
+            const audioTracks = files.filter(file => file.name.endsWith('.mp3') || file.name.endsWith('.wav'));
+            
+            if (audioTracks.length === 0) {
+                statusBox.innerText = "Folder found, but no .mp3 files are inside.";
+                display.innerText = "Library empty";
+                return;
+            }
+
+            // Clear loading placeholder text
+            playlistLayout.innerHTML = "";
+            display.innerText = "Select a track...";
+
+            // Dynamically construct a visual card row for each song found
+            audioTracks.forEach((track, index) => {
+                const cleanName = track.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+                const row = document.createElement('div');
+                row.className = 'track';
+                
+                // Use the raw static download link provided by GitHub's network CDN
+                row.onclick = () => playTrack(row, track.download_url, cleanName);
+                
+                row.innerHTML = `<span style="margin-right:10px; opacity:0.4;">${String(index + 1).padStart(2, '0')}</span> ${cleanName}`;
+                playlistLayout.appendChild(row);
+            });
+
+        } catch (error) {
+            statusBox.innerText = "Configuration required. Ensure folder named 'songs' exists.";
+            display.innerText = "Error loading";
+        }
+    }
+
+    function playTrack(element, directDownloadUrl, trackName) {
+        document.querySelectorAll('.track').forEach(t => t.classList.remove('active'));
+        element.classList.add('active');
+        
+        display.innerText = "Playing: " + trackName;
+        player.src = directDownloadUrl;
+        player.play();
+    }
+</script>
+
+</body>
+</html>
